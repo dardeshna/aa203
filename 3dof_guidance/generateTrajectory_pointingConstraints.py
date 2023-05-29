@@ -98,7 +98,10 @@ prob.solve()
 print(prob.status)
     
 m = np.exp(z.value)
-print(m)
+
+np.save("data/pos.npy",r.value)
+np.save("data/vel.npy",v.value)
+np.save("data/mass.npy",m)
 
 plt.figure()
 ax = plt.axes(projection='3d')
@@ -146,7 +149,9 @@ Tx = u.value[:,0] * m
 Ty = u.value[:,1] * m
 Tz = u.value[:,2] * m
 T = np.array([Tx,Ty,Tz]).T
+np.save("data/thrust.npy",T)
 T = np.linalg.norm(T,2,1)
+
 
 # plt.figure()
 # plt.subplot(5,1,1)
