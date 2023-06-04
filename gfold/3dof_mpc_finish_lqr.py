@@ -39,7 +39,7 @@ def dynamics(x, u):
     x = numpy.1darray, r = x[0:3], v = x[3:6], m = x[6]
     g = [gx, gy, gz]
     """
-    g = jnp.array([0,0,-3.7114])
+    g = jnp.array([0,0,-9.80665])
     α = 5E-4
     return jnp.array([
         x[3],
@@ -138,51 +138,51 @@ def run_mpc(  N,                # receding horizon (parameter)
     return r.value, v.value, m, T, status
 
 ## Constants
-g0 = 9.80665
-dry_mass = 1700
-Isp = 225
-max_throttle = 0.8
-min_throttle = 0.2
-g = np.array([0,0,-3.7114]) # Mars Gravity
-T_max = 24000
-γ = 4*np.deg2rad(1) # glide slope constraint
-wet_mass = 2000
-n = np.array([0,0,1]) # Nominal thrust pointing vector
-θ = np.deg2rad(45) # Attitude constraint
-
-## Initial Conditions
-r0 = np.array([450, -330, 2400])
-v0 = np.array([-40,10,-10])
-## Terminal Conditions set to origin
-rf = np.array([0,0,0])
-vf = np.array([0,0,0])
-## Time of Flight
-tf = 57
-dt = 1 # only works for dt=1 for infeasible part
-
-# New Shepard
 # g0 = 9.80665
-# dry_mass = 20569
-# wet_mass = 25000 # Assumed from start of landing burn
-# Isp = 260
-# max_throttle = 0.8 # Safety
-# min_throttle = 0.1
-# g = np.array([0.0,0.0,-9.81])
-# T_max = 490000
-# φ = 0*np.deg2rad(1)
-# γ = np.deg2rad(5)
-# n = np.array([0,0,1])
-# θ = np.deg2rad(20)
+# dry_mass = 1700
+# Isp = 225
+# max_throttle = 0.8
+# min_throttle = 0.2
+# g = np.array([0,0,-3.7114]) # Mars Gravity
+# T_max = 24000
+# γ = 4*np.deg2rad(1) # glide slope constraint
+# wet_mass = 2000
+# n = np.array([0,0,1]) # Nominal thrust pointing vector
+# θ = np.deg2rad(45) # Attitude constraint
 
 # ## Initial Conditions
-# r0 = 1000 * np.array([0.5, 0.1, 2])
-# v0 = np.array([20,0.01,-75])
+# r0 = np.array([450, -330, 2400])
+# v0 = np.array([-40,10,-10])
 # ## Terminal Conditions set to origin
 # rf = np.array([0,0,0])
 # vf = np.array([0,0,0])
 # ## Time of Flight
-# tf = 30
-# dt = 1
+# tf = 57
+# dt = 1 # only works for dt=1 for infeasible part
+
+# New Shepard
+g0 = 9.80665
+dry_mass = 20569
+wet_mass = 25000 # Assumed from start of landing burn
+Isp = 260
+max_throttle = 0.8 # Safety
+min_throttle = 0.1
+g = np.array([0.0,0.0,-9.81])
+T_max = 490000
+φ = 0*np.deg2rad(1)
+γ = np.deg2rad(5)
+n = np.array([0,0,1])
+θ = np.deg2rad(20)
+
+## Initial Conditions
+r0 = 1000 * np.array([0.5, 0.1, 2])
+v0 = np.array([20,0.01,-75])
+## Terminal Conditions set to origin
+rf = np.array([0,0,0])
+vf = np.array([0,0,0])
+## Time of Flight
+tf = 30
+dt = 1
 
 N0 = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf+dt,dt)
