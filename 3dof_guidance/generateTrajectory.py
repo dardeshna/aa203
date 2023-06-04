@@ -3,32 +3,60 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 ## Constants
+# g0 = 9.80665
+# dry_mass = 1505
+# Isp = 225
+# max_throttle = 0.8
+# min_throttle = 0.3
+# g = np.array([0,0,-3.7114]) # Mars Gravity
+# T_max = 6*3100
+# φ = 27*np.deg2rad(1) # Cant angle of thrusters (deg)
+# nThruster = 1
+# γ = 4*np.deg2rad(1) # glide slop constraint
+# wet_mass = 1905
+
+# ## Initial Conditions
+# r0 = 1000 * np.array([1.5, 0.1, 2])
+# v0 = np.array([100,0.01,-75])
+# ## Terminal Conditions set to origin
+# rf = np.array([0,0,0])
+# vf = np.array([0,0,0])
+# ## Time of Flight
+# tf = 72
+# dt = 1
+
+# New Shepard
 g0 = 9.80665
-dry_mass = 1505
-Isp = 225
-max_throttle = 0.8
-min_throttle = 0.3
-g = np.array([0,0,-3.7114]) # Mars Gravity
-T_max = 6*3100
-φ = 27*np.deg2rad(1) # Cant angle of thrusters (deg)
-nThruster = 1
-γ = 4*np.deg2rad(1) # glide slop constraint
-wet_mass = 1905
+dry_mass = 20569
+wet_mass = 25000 # Assumed from start of landing burn
+Isp = 260
+max_throttle = 0.8 # Safety
+min_throttle = 0.1
+g = np.array([0.0,0.0,-9.81])
+T_max = 490000
+φ = 0*np.deg2rad(1)
+γ = np.deg2rad(4)
+n = np.array([0,0,1])
+θ = np.deg2rad(90)
 
 ## Initial Conditions
 r0 = 1000 * np.array([1.5, 0.1, 2])
 v0 = np.array([100,0.01,-75])
+v0 = np.array([20,0.01,-75])
 ## Terminal Conditions set to origin
 rf = np.array([0,0,0])
 vf = np.array([0,0,0])
+
 ## Time of Flight
-tf = 72
+tf = 30
 dt = 1
+
+
 N = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf,dt)
 
 ## Constraint Parameters
-α = 1/(Isp*g0*np.cos(φ))
+α = 1/(g0*Isp*np.cos(φ))
 ρ1 = min_throttle*T_max*np.cos(φ)
 ρ2 = max_throttle*T_max*np.cos(φ)
 
@@ -103,7 +131,7 @@ ax.plot3D(r.value[:,0],r.value[:,1],r.value[:,2])
 ax.set_xlabel("X [m]")
 ax.set_ylabel("Y [m]")
 ax.set_zlabel("Z [m]")
-plt.savefig("../figures/3dof_trajectory.png")
+plt.savefig("figures/3dof_trajectory.png")
 
 t_span = np.linspace(0,tf,N)
 plt.figure()
@@ -117,7 +145,7 @@ plt.subplot(3,1,3)
 plt.plot(t_span,r.value[:,2])
 plt.xlabel("t [s]")
 plt.ylabel("rz [m]")
-plt.savefig("../figures/3dof_pos.png")
+plt.savefig("figures/3dof_pos.png")
 
 plt.figure()
 plt.subplot(3,1,1)
@@ -130,7 +158,7 @@ plt.subplot(3,1,3)
 plt.plot(t_span,v.value[:,2])
 plt.xlabel("t [s]")
 plt.ylabel("vz [m/s]")
-plt.savefig("../figures/3dof_vel.png")
+plt.savefig("figures/3dof_vel.png")
 
 
 Tx = u.value[:,0] * m
@@ -169,4 +197,4 @@ plt.plot(t_span,m)
 plt.ticklabel_format(style='plain')
 plt.ylabel("m [kg]")
 plt.xlabel("t [s]")
-plt.savefig("../figures/3dof_control.png")
+plt.savefig("figures/3dof_control.png")

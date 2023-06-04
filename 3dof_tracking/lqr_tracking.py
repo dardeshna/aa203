@@ -38,8 +38,8 @@ def dynamics(x, u):
     x = numpy.1darray, r = x[0:3], v = x[3:6], m = x[6]
     g = [gx, gy, gz]
     """
-    g = jnp.array([0,0,-3.7114])
-    α = 5E-4
+    g = jnp.array([0.0,0.0,-9.81])
+    α = 3.9246E-4
     return jnp.array([
         x[3],
         x[4],
@@ -52,7 +52,7 @@ def dynamics(x, u):
 
 n = 7
 m = 3
-Q = 100*np.identity(n)
+Q = 10000*np.identity(n)
 Q[2,2] = 10000
 R = 0.01*np.identity(m)
 closed_loop = True
@@ -65,7 +65,7 @@ x_data = np.hstack((pos,vel,mass))
 
 u_data = np.load("data/thrust.npy")
 
-tf = 57
+tf = 30
 dt = 1
 N = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf+dt,dt)

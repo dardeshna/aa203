@@ -3,34 +3,59 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 ## Constants
+# Mars
+# dry_mass = 1700
+# Isp = 225
+# max_throttle = 0.8
+# min_throttle = 0.2
+# g = np.array([0,0,-3.7114]) # Mars Gravity
+# T_max = 24000
+# γ = 4*np.deg2rad(1) # glide slope constraint
+# wet_mass = 2000
+# n = np.array([0,0,1]) # Nominal thrust pointing vector
+# θ = np.deg2rad(45) # Attitude constraint
+## Initial Conditions
+# r0 = np.array([450, -330, 2400])
+# v0 = np.array([-40,10,-10])
+# ## Terminal Conditions set to origin
+# rf = np.array([0,0,0])
+# vf = np.array([0,0,0])
+# ## Time of Flight
+# tf = 57
+# dt = 1
+
+# New Shepard
 g0 = 9.80665
-dry_mass = 1700
-Isp = 225
-max_throttle = 0.8
-min_throttle = 0.2
-g = np.array([0,0,-3.7114]) # Mars Gravity
-T_max = 24000
-γ = 4*np.deg2rad(1) # glide slope constraint
-wet_mass = 2000
-n = np.array([0,0,1]) # Nominal thrust pointing vector
-θ = np.deg2rad(45) # Attitude constraint
+dry_mass = 20569
+wet_mass = 25000 # Assumed from start of landing burn
+Isp = 260
+max_throttle = 0.8 # Safety
+min_throttle = 0.1
+g = np.array([0.0,0.0,-9.81])
+T_max = 490000
+φ = 0*np.deg2rad(1)
+γ = np.deg2rad(5)
+n = np.array([0,0,1])
+θ = np.deg2rad(20)
 
 ## Initial Conditions
-r0 = np.array([450, -330, 2400])
-v0 = np.array([-40,10,-10])
+r0 = 1000 * np.array([0.5, 0.1, 2])
+v0 = np.array([20,0.01,-75])
 ## Terminal Conditions set to origin
 rf = np.array([0,0,0])
 vf = np.array([0,0,0])
 ## Time of Flight
-tf = 57
+tf = 30
 dt = 1
+
+
 N = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf,dt)
 
 ## Constraint Parameters
-α = 5E-4
-ρ1 = min_throttle*T_max
-ρ2 = max_throttle*T_max
+α = 1/(g0*Isp*np.cos(φ))
+ρ1 = min_throttle*T_max*np.cos(φ)
+ρ2 = max_throttle*T_max*np.cos(φ)
 
 #### Set up CVXPY Problem
 r = cp.Variable((N,3))
@@ -184,3 +209,16 @@ plt.ticklabel_format(style='plain')
 plt.ylabel("m [kg]")
 plt.xlabel("t [s]")
 plt.savefig("figures/3dof_control_attitude.png")
+
+plt.figure()
+plt.subplot(3,1,1)
+plt.plot(t_span,Tx)
+plt.ylabel("Tx [N]")
+plt.subplot(3,1,2)
+plt.plot(t_span,Ty)
+plt.ylabel("Ty [N]")
+plt.subplot(3,1,3)
+plt.plot(t_span,Tz)
+plt.xlabel("t [s]")
+plt.ylabel("Tz [N]")
+plt.savefig("figures/3dof_controlVector_attitude.png")

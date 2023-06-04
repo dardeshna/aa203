@@ -42,8 +42,8 @@ def run_mpc(  N,                # receding horizon (parameter)
         objective = cp.Minimize(-z[N-1])
         ## Terminal Constraints
         constraints += [
-            r[N-1] == rf,
-            v[N-1] == vf
+            r[N-1] == rf,   
+            v[N-1] == vf    
         ]
     elif objective_choice == 'error_opt':
         # objective = cp.Minimize(cp.norm2(r[N-1,0:2] - rf[0:2]))
