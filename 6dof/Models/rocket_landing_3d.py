@@ -204,8 +204,6 @@ class Model:
         A = sp.simplify(f.jacobian(x))
         B = sp.simplify(f.jacobian(u))
 
-        print(A)
-
         f_func = sp.lambdify((x, u), f, 'numpy')
         A_func = sp.lambdify((x, u), A, 'numpy')
         B_func = sp.lambdify((x, u), B, 'numpy')
