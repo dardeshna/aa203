@@ -3,6 +3,7 @@ import numpy as np
 import cvxpy as cvx
 from utils import euler_to_quat
 from global_parameters import K
+from scipy.spatial.transform import Rotation
 
 
 def skew(v):
@@ -38,20 +39,35 @@ class Model:
     n_u = 3
 
     # Mass
-    m_wet = 30000.  # 30000 kg
-    m_dry = 22000.  # 22000 kg
+    m_wet = 25000.  # 30000 kg
+    m_dry = 20569.  # 22000 kg
 
     # Flight time guess
-    t_f_guess = 15.  # 10 s
+    t_f_guess = 30.  # 10 s
 
-    # State constraints
-    r_I_init = np.array((0., 200., 200.))  # 2000 m, 200 m, 200 m
-    v_I_init = np.array((-50., -100., -50.))  # -300 m/s, 50 m/s, 50 m/s
-    q_B_I_init = euler_to_quat((0, 0, 0))
+    # State constraints (east north up)
+    r_I_init = 1000 * np.array([1.5, 0.1, 2])  # 1500 m, 100 m, 2000 m
+    v_I_init = np.array([20, 0.01, -75])  # 20 m/s, 0.01 m/s, -75 m/s
+
+    heading_init = -v_I_init/np.linalg.norm(v_I_init)
+    
+    eps = 1e-5
+    if heading_init[2] > 1-eps:
+        q_B_I_init = Rotation.identity().as_quat()
+    elif heading_init[2] < -1+eps:
+        q_B_I_init = Rotation.from_euler('x', np.pi).as_quat()
+    else:
+        c = np.cross(np.array([0, 0, 1]), heading_init)
+        c = c/np.linalg.norm(c)
+        q_B_I_init = Rotation.from_rotvec(c*np.arccos(heading_init[2])).as_quat()
+
+    q_B_I_init = np.roll(q_B_I_init, 1) # convert to scalar-first format
+
+    # q_B_I_init = euler_to_quat((0., 0., 0.))
     w_B_init = np.deg2rad(np.array((0., 0., 0.)))
 
     r_I_final = np.array((0., 0., 0.))
-    v_I_final = np.array((0., 0., -5.))
+    v_I_final = np.array((0., 0., 0.))
     q_B_I_final = euler_to_quat((0, 0, 0))
     w_B_final = np.deg2rad(np.array((0., 0., 0.)))
 
@@ -59,8 +75,8 @@ class Model:
 
     # Angles
     max_gimbal = 7
-    max_angle = 70
-    glidelslope_angle = 20
+    max_angle = 90
+    glidelslope_angle = 4
 
     tan_delta_max = np.tan(np.deg2rad(max_gimbal))
     cos_delta_max = np.tan(np.deg2rad(max_gimbal))
@@ -68,20 +84,28 @@ class Model:
     tan_gamma_gs = np.tan(np.deg2rad(glidelslope_angle))
 
     # Thrust limits
-    T_max = 800000.  # 800000 [kg*m/s^2]
-    T_min = T_max * 0.4
+
+    T = 490000   # 490000 [kg*m/s^2]
+    max_throttle = 0.8 # Safety
+    min_throttle = 0.1
+
+    T_max = T * max_throttle
+    T_min = T * min_throttle
 
     # Angular moment of inertia
-    J_B = np.diag([4000000., 4000000., 100000.])  # 100000 [kg*m^2], 4000000 [kg*m^2], 4000000 [kg*m^2]
+    height = 18 
+    radius = 1.85
+    J_B = np.diag([1/12*m_wet*(3*radius**2+height**2), 1/12*m_wet*(3*radius**2+height**2), 1/2*m_wet*radius**2])
 
     # Gravity
     g_I = np.array((0., 0., -9.81))  # -9.81 [m/s^2]
 
     # Fuel consumption
-    alpha_m = 1 / (282 * 9.81)  # 1 / (282 * 9.81) [s/m]
+    I_sp = 260
+    alpha_m = 1 / (I_sp * 9.81)  # 1 / (I_sp * 9.81) [s/m]
 
     # Vector from thrust point to CoM
-    r_T_B = np.array([0., 0., -14.])  # -20 m
+    r_T_B = np.array([0., 0., -1/2*height])
 
     def set_random_initial_state(self):
         self.r_I_init[2] = 500
@@ -105,7 +129,7 @@ class Model:
         and (it seems) precision is lost in the dynamics.
         """
 
-        self.set_random_initial_state()
+        # self.set_random_initial_state()
 
         self.x_init = np.concatenate(((self.m_wet,), self.r_I_init, self.v_I_init, self.q_B_I_init, self.w_B_init))
         self.x_final = np.concatenate(((self.m_dry,), self.r_I_final, self.v_I_final, self.q_B_I_final, self.w_B_final))
@@ -244,7 +268,7 @@ class Model:
         :param U_last_p: cvx parameter for last inputs
         :return: A cvx objective function.
         """
-        return cvx.Minimize(1e5 * cvx.sum(self.s_prime))
+        return cvx.Minimize(1e5 * cvx.sum(self.s_prime) - 1e-4 * X_v[0, -1])
 
     def get_constraints(self, X_v, U_v, X_last_p, U_last_p):
         """

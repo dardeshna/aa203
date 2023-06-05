@@ -57,7 +57,7 @@ for it in range(iterations):
                            weight_nu=w_nu, weight_sigma=w_sigma, tr_radius=tr_radius)
 
     while True:
-        error = problem.solve(verbose=verbose_solver, solver=solver, max_iters=200)
+        error = problem.solve(verbose=verbose_solver, solver=solver, max_iters=500)
         print(format_line('Solver Error', error))
 
         # get solution
@@ -94,6 +94,7 @@ for it in range(iterations):
         print(format_line('Predicted change', predicted_change))
         print('')
         print(format_line('Final time', sigma))
+        print(format_line("Final mass", X[0, -1]*m.m_scale))
         print('')
 
         if abs(predicted_change) < 1e-4:
