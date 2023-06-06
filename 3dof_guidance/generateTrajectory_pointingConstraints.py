@@ -36,7 +36,7 @@ T_max = 490000
 φ = 0*np.deg2rad(1)
 γ = np.deg2rad(20)
 n = np.array([0,0,1])
-θ = np.deg2rad(20)
+θ = np.deg2rad(27)
 
 ## Initial Conditions
 r0 = 1000 * np.array([1.5, 0.5, 2])
@@ -58,6 +58,18 @@ ts = np.arange(0,tf,dt)
 α = 1/(g0*Isp*np.cos(φ))
 ρ1 = min_throttle*T_max*np.cos(φ)
 ρ2 = max_throttle*T_max*np.cos(φ)
+
+# Normalization
+r_scale = np.linalg.norm(r0)
+m_scale = wet_mass
+α = α*r_scale
+g = g/r_scale
+ρ1 = ρ1/r_scale/m_scale
+ρ2 = ρ2/r_scale/m_scale
+wet_mass = wet_mass/m_scale
+dry_mass = dry_mass/m_scale
+r0 = r0/r_scale
+v0 = v0/r_scale
 
 #### Set up CVXPY Problem
 r = cp.Variable((N,3))
@@ -124,7 +136,10 @@ prob = cp.Problem(objective,constraints)
 prob.solve()
 print(prob.status)
     
-m = np.exp(z.value)
+m = m_scale*np.exp(z.value)
+r = r*r_scale
+v = v*r_scale
+
 
 np.save("data/pos.npy",r.value)
 np.save("data/vel.npy",v.value)
@@ -175,9 +190,9 @@ plt.ylabel("vz [m/s]")
 plt.savefig("figures/3dof_vel_attitude.png")
 
 
-Tx = u.value[:,0] * m
-Ty = u.value[:,1] * m
-Tz = u.value[:,2] * m
+Tx = u.value[:,0] * m * r_scale
+Ty = u.value[:,1] * m * r_scale
+Tz = u.value[:,2] * m * r_scale
 T = np.array([Tx,Ty,Tz]).T
 np.save("data/thrust.npy",T)
 T = np.linalg.norm(T,2,1)
