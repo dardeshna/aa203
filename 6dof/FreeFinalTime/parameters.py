@@ -2,7 +2,7 @@ from global_parameters import *
 
 # Weight constants
 w_nu = 1e5  # virtual control
-w_sigma = 0  # flight time
+w_sigma = 1  # flight time
 # initial trust region radius
 tr_radius = 5
 # trust region variables

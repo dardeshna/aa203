@@ -39,15 +39,28 @@ class Model:
     n_u = 3
 
     # Mass
-    m_wet = 25000.  # 30000 kg
+    m_wet = 27000.  # 30000 kg
     m_dry = 20569.  # 22000 kg
 
     # Flight time guess
-    t_f_guess = 30.  # 10 s
+    t_f_guess = 50.  # 10 s
+
+    # Angles
+    max_gimbal = 7
+    max_angle = 20
+    glidelslope_angle = 20
+
+    tan_delta_max = np.tan(np.deg2rad(max_gimbal))
+    cos_delta_max = np.tan(np.deg2rad(max_gimbal))
+    cos_theta_max = np.cos(np.deg2rad(max_angle))
+    tan_gamma_gs = np.tan(np.deg2rad(glidelslope_angle))
 
     # State constraints (east north up)
-    r_I_init = 1000 * np.array([1.5, 0.1, 2])  # 1500 m, 100 m, 2000 m
-    v_I_init = np.array([20, 0.01, -75])  # 20 m/s, 0.01 m/s, -75 m/s
+    # r_I_init = 1000 * np.array([1.5, 0.1, 2])  # 1500 m, 100 m, 2000 m
+    # v_I_init = np.array([20, 0.01, -75])  # 20 m/s, 0.01 m/s, -75 m/s
+
+    r_I_init = 1000 * np.array([1.5, 0.5, 2])  # 1500 m, 100 m, 2000 m
+    v_I_init = np.array([50, -30, -100])  # 20 m/s, 0.01 m/s, -75 m/s
 
     heading_init = -v_I_init/np.linalg.norm(v_I_init)
     
@@ -59,7 +72,7 @@ class Model:
     else:
         c = np.cross(np.array([0, 0, 1]), heading_init)
         c = c/np.linalg.norm(c)
-        q_B_I_init = Rotation.from_rotvec(c*np.arccos(heading_init[2])).as_quat()
+        q_B_I_init = Rotation.from_rotvec(c*np.minimum(np.arccos(heading_init[2]), 0.9*np.deg2rad(max_angle))).as_quat()
 
     q_B_I_init = np.roll(q_B_I_init, 1) # convert to scalar-first format
 
@@ -72,16 +85,6 @@ class Model:
     w_B_final = np.deg2rad(np.array((0., 0., 0.)))
 
     w_B_max = np.deg2rad(90)
-
-    # Angles
-    max_gimbal = 7
-    max_angle = 90
-    glidelslope_angle = 4
-
-    tan_delta_max = np.tan(np.deg2rad(max_gimbal))
-    cos_delta_max = np.tan(np.deg2rad(max_gimbal))
-    cos_theta_max = np.cos(np.deg2rad(max_angle))
-    tan_gamma_gs = np.tan(np.deg2rad(glidelslope_angle))
 
     # Thrust limits
 
@@ -243,18 +246,94 @@ class Model:
         :return: The initialized X and U
         """
 
+        dt = self.t_f_guess/K
+
+        θ = np.deg2rad(self.max_angle+self.max_gimbal)
+
+        #### Set up CVXPY Problem
+        r = cvx.Variable((K,3))
+        v = cvx.Variable((K,3))
+        u = cvx.Variable((K,3))
+        z = cvx.Variable(K)
+        σ = cvx.Variable(K)
+
+        ## Objective
+        objective = cvx.Minimize(-z[-1])
+
+        constraints = []
+        ## Initial Condition Constraints
+        constraints += [
+            r[0] == self.x_init[1:4],
+            v[0] == self.x_init[4:7],
+            z[0] == np.log(self.x_init[0])
+        ]
+        ## Terminal Constraints
+        constraints += [
+            r[-1] == self.x_final[1:4],
+            v[-1] == self.x_final[4:7]
+        ]
+        ## Constraints at each time step
+        for i in range(K):
+            z0_innerTerm = self.m_wet - self.alpha_m*self.T_max*i*dt
+            zupper_comp  = self.m_wet - self.alpha_m*self.T_min*i*dt
+
+            z0 = np.log(z0_innerTerm)
+            zupper = np.log(zupper_comp)
+
+            μ1 = self.T_min/z0_innerTerm
+            μ2 = self.T_max/z0_innerTerm
+            constraints += [
+                # Thrust Magnitude Constraint
+                cvx.norm2(u[i]) <= σ[i],
+                # Thrust Pointing Constraint
+                np.array([0,0,1])@u[i] >= np.cos(θ)*σ[i],
+                # Enforce Sigma
+                σ[i] >= μ1 * (1 - (z[i] - z0) + 1/2*cvx.square(z[i]-z0)),
+                σ[i] <= μ2 * (1 - (z[i] - z0)),
+                # Enforce z
+                z[i] >= z0,
+                z[i] <= zupper,
+                # Glide Slope
+                self.tan_gamma_gs * cvx.norm2(r[i][0:2]) <= r[i][2],
+                # Enforce that feasible trajectories don't go under the surface
+                r[i][2] >= -0.001
+            ]
+
+        ## Dynamics at Each Time Step, using trapezoidal integration
+        for i in range(K-1):
+            constraints += [
+                # Velocity Update
+                v[i+1] == v[i] + dt/2*(u[i] + u[i+1]) + self.g_I*dt,
+                # Position Update
+                r[i+1] == r[i] + dt/2*(v[i] + v[i+1]) + (dt**2)/2*(u[i+1]-u[i]),
+                # z Update
+                z[i+1] == z[i] - self.alpha_m*dt/2*(σ[i] + σ[i+1])
+            ]
+
+        prob = cvx.Problem(objective,constraints)
+        prob.solve(verbose=True)
+
+        print("WARM START")
+        print("final mass: ", np.exp(z[-1].value)*self.m_scale)
+        
         for k in range(K):
             alpha1 = (K - k) / K
             alpha2 = k / K
 
-            m_k = (alpha1 * self.x_init[0] + alpha2 * self.x_final[0],)
-            r_I_k = alpha1 * self.x_init[1:4] + alpha2 * self.x_final[1:4]
-            v_I_k = alpha1 * self.x_init[4:7] + alpha2 * self.x_final[4:7]
+            # m_k = (alpha1 * self.x_init[0] + alpha2 * self.x_final[0],)
+            # r_I_k = alpha1 * self.x_init[1:4] + alpha2 * self.x_final[1:4]
+            # v_I_k = alpha1 * self.x_init[4:7] + alpha2 * self.x_final[4:7]
+
+            m_k = np.array([np.exp(z[k].value)])
+            r_I_k = r[k].value
+            v_I_k = v[k].value
+
             q_B_I_k = np.array([1, 0, 0, 0])
             w_B_k = alpha1 * self.x_init[11:14] + alpha2 * self.x_final[11:14]
 
             X[:, k] = np.concatenate((m_k, r_I_k, v_I_k, q_B_I_k, w_B_k))
-            U[:, k] = (self.T_max - self.T_min) / 2 * np.array([0, 0, 1])
+            # U[:, k] = (self.T_max - self.T_min) / 2 * np.array([0, 0, 1])
+            U[:, k] = np.array([0, 0, 1])*np.linalg.norm(u[k].value)*m_k
 
         return X, U
 
@@ -268,7 +347,7 @@ class Model:
         :param U_last_p: cvx parameter for last inputs
         :return: A cvx objective function.
         """
-        return cvx.Minimize(1e5 * cvx.sum(self.s_prime) - 1e-4 * X_v[0, -1])
+        return cvx.Minimize(1e5 * cvx.sum(self.s_prime) - 1e-2 * X_v[0, -1])
 
     def get_constraints(self, X_v, U_v, X_last_p, U_last_p):
         """
@@ -295,7 +374,7 @@ class Model:
 
         constraints += [
             # State constraints:
-            X_v[0, :] >= self.m_dry,  # minimum mass
+            # X_v[0, :] >= self.m_dry,  # minimum mass
             cvx.norm(X_v[1: 3, :], axis=0) <= X_v[3, :] / self.tan_gamma_gs,  # glideslope
             cvx.norm(X_v[8:10, :], axis=0) <= np.sqrt((1 - self.cos_theta_max) / 2),  # maximum angle
             cvx.norm(X_v[11: 14, :], axis=0) <= self.w_B_max,  # maximum angular velocity

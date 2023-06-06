@@ -16,7 +16,7 @@ m = Model()
 X = np.empty(shape=[m.n_x, K])
 U = np.empty(shape=[m.n_u, K])
 
-traj_folder = "001"
+traj_folder = "002"
 X = np.load(f"output/trajectory/{traj_folder}/X.npy")[-1]
 U = np.load(f"output/trajectory/{traj_folder}/U.npy")[-1]
 t_f = np.load(f"output/trajectory/{traj_folder}/sigma.npy")[-1]
