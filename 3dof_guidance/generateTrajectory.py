@@ -48,8 +48,8 @@ rf = np.array([0,0,0])
 vf = np.array([0,0,0])
 
 ## Time of Flight
-tf = 30
-dt = 1
+tf = 40
+dt = 0.1
 
 
 N = int(np.ceil(tf/dt) + 1)

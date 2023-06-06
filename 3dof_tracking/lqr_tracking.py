@@ -65,8 +65,8 @@ x_data = np.hstack((pos,vel,mass))
 
 u_data = np.load("data/thrust.npy")
 
-tf = 30
-dt = 1
+tf = 40
+dt = 0.1
 N = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf+dt,dt)
 

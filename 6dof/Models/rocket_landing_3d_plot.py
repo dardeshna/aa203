@@ -31,6 +31,7 @@ def my_plot(fig, figures_i):
     ax = fig.add_subplot(111, projection='3d')
 
     X_i = X[figures_i, :, :]
+    np.save("data/x_6dof.npy",X_i)
     U_i = U[figures_i, :, :]
     K = X_i.shape[1]
 

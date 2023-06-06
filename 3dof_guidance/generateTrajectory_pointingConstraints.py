@@ -27,26 +27,28 @@ import matplotlib.pyplot as plt
 # New Shepard
 g0 = 9.80665
 dry_mass = 20569
-wet_mass = 25000 # Assumed from start of landing burn
+wet_mass = 27000 # Assumed from start of landing burn
 Isp = 260
 max_throttle = 0.8 # Safety
 min_throttle = 0.1
 g = np.array([0.0,0.0,-9.81])
 T_max = 490000
 φ = 0*np.deg2rad(1)
-γ = np.deg2rad(5)
+γ = np.deg2rad(20)
 n = np.array([0,0,1])
 θ = np.deg2rad(20)
 
 ## Initial Conditions
-r0 = 1000 * np.array([0.5, 0.1, 2])
-v0 = np.array([20,0.01,-75])
+r0 = 1000 * np.array([1.5, 0.5, 2])
+v0 = np.array([50,-30,-100])
 ## Terminal Conditions set to origin
 rf = np.array([0,0,0])
 vf = np.array([0,0,0])
 ## Time of Flight
-tf = 30
-dt = 1
+tf = 48
+dt = 0.1
+# N = 200
+# dt = tf/N
 
 
 N = int(np.ceil(tf/dt) + 1)
@@ -128,9 +130,12 @@ np.save("data/pos.npy",r.value)
 np.save("data/vel.npy",v.value)
 np.save("data/mass.npy",m)
 
+print(m[-1])
+
 plt.figure()
 ax = plt.axes(projection='3d')
 ax.plot3D(r.value[:,0],r.value[:,1],r.value[:,2])
+ax.set_aspect('equal')
 ax.set_xlabel("X [m]")
 ax.set_ylabel("Y [m]")
 ax.set_zlabel("Z [m]")
@@ -177,6 +182,10 @@ T = np.array([Tx,Ty,Tz]).T
 np.save("data/thrust.npy",T)
 T = np.linalg.norm(T,2,1)
 
+print(Tx[-1])
+print(Ty[-1])
+print(Tz[-1])
+
 
 # plt.figure()
 # plt.subplot(5,1,1)
@@ -222,3 +231,5 @@ plt.plot(t_span,Tz)
 plt.xlabel("t [s]")
 plt.ylabel("Tz [N]")
 plt.savefig("figures/3dof_controlVector_attitude.png")
+
+# plt.show()
