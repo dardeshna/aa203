@@ -242,7 +242,7 @@ Q = 1e1*np.eye(s_dim-2)                       # state cost matrix
 R = 1e-2*np.eye(a_dim)                      # control cost matrix
 eps = 1e-3                              # SCP convergence tolerance
 
-N = 10
+N = 50
 N_scp = 10
 
 
