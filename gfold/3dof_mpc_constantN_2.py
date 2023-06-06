@@ -55,7 +55,7 @@ def run_mpc(  N,                # receding horizon (parameter)
               α, ρ1, ρ2,        # Constraint parameters
               r0, v0, wet_mass, # initial constraints (parameters)
               rf, vf,           # terminal contraints
-              dt, g, γ, θ, n    # constants
+              dt, g, γ, θ, n, m_dry    # constants
     ):
     # CVX variables
     r = cp.Variable((N,3))
@@ -65,14 +65,23 @@ def run_mpc(  N,                # receding horizon (parameter)
     σ = cp.Variable(N)
     
     ## Objective
-    objective = cp.Minimize(-z[N-1])
+    objective = 0
+    objective += -z[N-1]
+    objective += 1000*cp.norm2(rf - r[N-1])
+    objective += 1000*cp.norm2(vf - v[N-1])
+    
+    # Try to get to goal at each time step
+    for i in range(N):
+        objective += 100*cp.norm2(rf - r[i])
+        objective += 100*cp.norm2(vf - v[i])
     
     constraints = []
     
     ## Terminal Constraints
     constraints += [
-        r[N-1] == rf,
-        v[N-1] == vf
+        # r[N-1] == rf,
+        # v[N-1] == vf,
+        z[N-1] >= np.log(m_dry)
     ]
     
     ## Initial Condition Constraints
@@ -121,6 +130,7 @@ def run_mpc(  N,                # receding horizon (parameter)
         ]
 
     ## Solve Problem
+    objective = cp.Minimize(objective)
     prob = cp.Problem(objective,constraints)
     prob.solve()
     status = prob.status
@@ -163,7 +173,7 @@ def run_mpc(  N,                # receding horizon (parameter)
 
 g0 = 9.80665
 dry_mass = 20569
-wet_mass = 28000 # Assumed from start of landing burn
+wet_mass = 30000 # Assumed from start of landing burn
 Isp = 260
 max_throttle = 0.8 # Safety
 min_throttle = 0.1
@@ -196,6 +206,8 @@ ts = np.arange(0,tf+dt,dt)
 
 N = N0
 
+N_fixed = 20
+
 ## Looping vars
 s = 7
 m = 3
@@ -215,7 +227,7 @@ objective_choice = 'fuel_opt'
 
 for t in tqdm(range(N0-1)):
     # Solve Convex Problem
-    r, v, mass, u, status = run_mpc(N, α, ρ1, ρ2, r0, v0, wet_mass,rf, vf, dt, g, γ, θ, n)
+    r, v, mass, u, status = run_mpc(N_fixed, α, ρ1, ρ2, r0, v0, wet_mass,rf, vf, dt, g, γ, θ, n, dry_mass)
     
     if status == 'infeasible':
         break
@@ -234,11 +246,15 @@ for t in tqdm(range(N0-1)):
     r0 = x_hist[t+1, 0:3]
     v0 = x_hist[t+1, 3:6]
     wet_mass = x_hist[t+1,6]
-    
+
+print(r0)
+print(v0)
+print(wet_mass)
+
 ## Use LQR to track remaining trajectory
 print("Finish up what's left with LQR tracking")
-Q = 1000*np.identity(s)
-Q[2,2] = 10000
+Q = 10000*np.identity(s)
+Q[2,2] = 100000
 R = 0.01*np.identity(m)
 closed_loop = True
 
