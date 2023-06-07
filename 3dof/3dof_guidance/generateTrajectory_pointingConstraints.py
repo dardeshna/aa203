@@ -135,10 +135,13 @@ np.save(os.path.join(data_dir, "thrust.npy"),T)
 
 T = np.linalg.norm(T,2,1)
 
+print(r.value[-1])
 print(m[-1])
-print(Tx[-1])
-print(Ty[-1])
-print(Tz[-1])
+print(np.linalg.norm(r.value[-1]))
+print(np.linalg.norm(v.value[-1]))
+# print(Tx[-1])
+# print(Ty[-1])
+# print(Tz[-1])
 
 ## Generate plots
 plt.figure()

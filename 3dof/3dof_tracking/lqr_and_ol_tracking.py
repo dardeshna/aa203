@@ -127,6 +127,10 @@ for i in range(N-1):
 np.save(os.path.join(data_dir, "x.npy"),x)
 np.save(os.path.join(data_dir, "u.npy"),u_ol+u_cl)
 
+print(x[-1])
+print(np.linalg.norm(x[-1,0:3]))
+print(np.linalg.norm(x[-1,3:6]))
+
 ## Plot figures
 t_span = np.linspace(0,tf,N)
 plt.figure()

@@ -289,6 +289,8 @@ for t in tqdm(range(len(ts)-1)):
 print(r0)
 print(v0)
 print(wet_mass)
+print(np.linalg.norm(r0))
+print(np.linalg.norm(v0))
 
 np.save(os.path.join(data_dir, "mpc_x.npy"),x_hist)
 np.save(os.path.join(data_dir, "mpc_t.npy"),ts)
