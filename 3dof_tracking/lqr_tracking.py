@@ -40,13 +40,16 @@ def dynamics(x, u):
     """
     g = jnp.array([0.0,0.0,-9.81])
     α = 3.9246E-4
+    vx, vy, vz = x[3:6]
+    v = jnp.linalg.norm(x[3:6])
+    B = 2.5 / x[-1]
     return jnp.array([
         x[3],
         x[4],
         x[5],
-        g[0] + u[0]/x[6],
-        g[1] + u[1]/x[6],
-        g[2] + u[2]/x[6],
+        g[0] + u[0]/x[6] - B*v*vx,
+        g[1] + u[1]/x[6] - B*v*vy,
+        g[2] + u[2]/x[6] - B*v*vz,
         -α*jnp.linalg.norm(u)
     ])
 
@@ -61,12 +64,13 @@ closed_loop = True
 mass = np.array([np.load("data/mass.npy")]).T
 pos = np.load("data/pos.npy")
 vel = np.load("data/vel.npy")
+x_ol = np.load("data/stateErrorOL_drag.npy")
 x_data = np.hstack((pos,vel,mass))
 
 u_data = np.load("data/thrust.npy")
 
 tf = 48
-dt = 0.1
+dt = 1
 N = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf+dt,dt)
 
@@ -97,37 +101,78 @@ for i in range(N-1):
         u_cl[i] = -K[i]@e[i]
     u[i]    = u_ol[i] + u_cl[i]
     x[i+1] = odeint(f_sim,x[i],[ts[i],ts[i+1]],args=(u[i],))[-1]
+# np.save("data/stateErrorOL_drag.npy",x)
 
 t_span = np.linspace(0,tf,N)
 plt.figure()
 plt.subplot(3,1,1)
+plt.grid(True)
 plt.plot(t_span,x_data[:,0])
 plt.plot(t_span,x[:,0])
 plt.legend(["Nominal","True"])
-plt.ylabel("rx [m]")
+plt.ylabel(r"$r_x$ [m]")
 plt.subplot(3,1,2)
+plt.grid(True)
 plt.plot(t_span,x_data[:,1])
 plt.plot(t_span,x[:,1])
 plt.legend(["Nominal","True"])
-plt.ylabel("ry [m]")
+plt.ylabel(r"$r_y$ [m]")
 plt.subplot(3,1,3)
+plt.grid(True)
 plt.plot(t_span,x_data[:,2])
 plt.plot(t_span,x[:,2])
 plt.legend(["Nominal","True"])
 plt.xlabel("t [s]")
-plt.ylabel("rz [m]")
+plt.ylabel(r"$r_z$ [m]")
 plt.savefig("figures/3dof_pos_lqr.png")
+
+x_mpc = np.load("data/mpc_x.npy")
+u_mpc = np.load("data/mpc_u.npy")
+# t_mpc = np.load("data/mpc_t.npy")
+plt.figure()
+plt.subplot(3,1,1)
+plt.grid(True)
+plt.plot(t_span,x_ol[:,0]-x_data[:,0])
+plt.plot(t_span,x[:,0]-x_data[:,0])
+plt.plot(t_span,x_mpc[:,0]-x_data[:,0])
+plt.legend(["Open Loop","LQR","MPC"])
+plt.ylabel(r"Error $r_x$ [m]")
+plt.subplot(3,1,2)
+plt.grid(True)
+plt.plot(t_span,x_ol[:,1]-x_data[:,1])
+plt.plot(t_span,x[:,1]-x_data[:,1])
+plt.plot(t_span,x_mpc[:,1]-x_data[:,1])
+plt.subplot(3,1,3)
+plt.grid(True)
+plt.plot(t_span,x_ol[:,2]-x_data[:,2])
+plt.plot(t_span,x[:,2]-x_data[:,2])
+plt.plot(t_span,x_mpc[:,2]-x_data[:,2])
+plt.xlabel("t [s]")
+plt.ylabel(r"Error $r_z$ [m]")
+plt.savefig("figures/3dof_poserr_lqr.png")
 
 plt.figure()
 plt.subplot(3,1,1)
-plt.plot(t_span,x[:,0]-x_data[:,0])
-plt.ylabel("Error rx [m]")
+plt.grid(True)
+plt.plot(t_span[:-1],u_ol[:,0]/1000,'b')
+plt.plot(t_span[:-1],u_ol[:,0]/1000 + u_cl[:,0]/1000,'r',linestyle='dashed')
+plt.plot(t_span[:-1],u_mpc[:,0]/1000,'g',linestyle='dashed')
+plt.legend(["Open Loop","LQR","MPC"])
+plt.ylabel(r"$T_x$ [kN]")
 plt.subplot(3,1,2)
-plt.plot(t_span,x[:,1]-x_data[:,1])
-plt.legend(["Nominal","True"])
-plt.ylabel("Error ry [m]")
+plt.grid(True)
+plt.plot(t_span[:-1],u_ol[:,1]/1000,'b')
+plt.plot(t_span[:-1],u_ol[:,1]/1000 + u_cl[:,1]/1000,'r',linestyle='dashed')
+plt.plot(t_span[:-1],u_mpc[:,1]/1000,'g',linestyle='dashed')
+# plt.legend(["Open Loop","Closed Loop"])
+plt.ylabel(r"$T_y$ [kN]")
 plt.subplot(3,1,3)
-plt.plot(t_span,x[:,2]-x_data[:,2])
+plt.grid(True)
+plt.plot(t_span[:-1],u_ol[:,2]/1000,'b')
+plt.plot(t_span[:-1],u_ol[:,2]/1000 + u_cl[:,2]/1000,'r',linestyle='dashed')
+plt.plot(t_span[:-1],u_mpc[:,2]/1000,'g',linestyle='dashed')
+# plt.legend(["Open Loop","Closed Loop"])
 plt.xlabel("t [s]")
-plt.ylabel("Error rz [m]")
-plt.savefig("figures/3dof_poserr_lqr.png")
+plt.ylabel(r"$T_z$ [kN]")
+plt.savefig("figures/3dof_control_lqr.png")
+

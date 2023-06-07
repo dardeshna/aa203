@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import cvxpy as cp
 import numpy as np
 import matplotlib.pyplot as plt
+import control
 
 from scipy.integrate import odeint
 from tqdm import tqdm
@@ -13,15 +14,43 @@ def dynamics(x, u, g, α):
     x = numpy.1darray, r = x[0:3], v = x[3:6], m = x[6]
     g = [gx, gy, gz]
     """
+    vx, vy, vz = x[3:6]
+    v = jnp.linalg.norm(x[3:6])
+    B = 2.5 / x[-1]
     return jnp.array([
         x[3],
         x[4],
         x[5],
-        g[0] + u[0]/x[6],
-        g[1] + u[1]/x[6],
-        g[2] + u[2]/x[6],
+        g[0] + u[0]/x[6] - B*v*vx,
+        g[1] + u[1]/x[6] - B*v*vy,
+        g[2] + u[2]/x[6] - B*v*vz,
         -α*jnp.linalg.norm(u)
     ])
+
+def linearize(f, x, u):
+    """Linearize the function `f(s, u)` around `(s, u)`.
+
+    Arguments
+    ---------
+    f : callable
+        A nonlinear function with call signature `f(s, u)`.
+    s : numpy.ndarray
+        The state (1-D).
+    u : numpy.ndarray
+        The control input (1-D).
+
+    Returns
+    -------
+    A : numpy.ndarray
+        The Jacobian of `f` at `(s, u)`, with respect to `s`.
+    B : numpy.ndarray
+        The Jacobian of `f` at `(s, u)`, with respect to `u`.
+    """
+    # WRITE YOUR CODE BELOW ###################################################
+    # INSTRUCTIONS: Use JAX to compute `A` and `B` in one line.
+    A,B = jax.jacobian(f,[0,1])(x,u)
+
+    return A, B
 
 def run_mpc(r0, v0, wet_mass,           # Initial conditions
             rf, vf,                     # Final conditions
@@ -52,14 +81,14 @@ def run_mpc(r0, v0, wet_mass,           # Initial conditions
     ## Objective
     objective = 0
     objective += -z[N-1]
-    objective += cp.norm2(r[N-1] - rf)
-    objective += cp.norm2(v[N-1] - vf)
+    # objective += cp.norm2(r[N-1] - rf)
+    # objective += cp.norm2(v[N-1] - vf)
 
-    for i in range(N):
-        objective += cp.norm2(r[i] - rf)
-        objective += cp.norm2(v[i] - vf)
+    # for i in range(N):
+    #     objective += cp.norm2(r[i] - rf)
+    #     objective += cp.norm2(v[i] - vf)
 
-        objective += 10*cp.norm2(r[i,2] - rf[2])
+    #     objective += 10*cp.norm2(r[i,2] - rf[2])
 
     objective = cp.Minimize(objective)
 
@@ -75,9 +104,9 @@ def run_mpc(r0, v0, wet_mass,           # Initial conditions
 
     ## Terminal Constraints
     constraints += [
-        # r[N-1] == rf,
-        # v[N-1] == vf,
-        z[N-1] >= np.log(dry_mass)
+        r[N-1] == rf,
+        v[N-1] == vf,
+        # z[N-1] >= np.log(dry_mass)
     ]
     ## Constraints at each time step
     for i in range(N):
@@ -188,7 +217,12 @@ def run_min_landing_mpc(r0, v0, wet_mass,           # Initial conditions
 
     # Gamma = || Thrust ||
 
-
+# Open Loop Data
+# mass = np.array([np.load("data/mass.npy")]).T
+# pos = np.load("data/pos.npy")
+# vel = np.load("data/vel.npy")
+# x_data = np.hstack((pos,vel,mass))
+# u_data = np.load("data/thrust.npy")
 
 
 ## New Shepard
@@ -205,7 +239,7 @@ n = np.array([0,0,1])
 
 ## Earth
 g0 = 9.80665
-g = np.array([0.0,0.0,-g0])
+g = np.array([0.0,0.0,-9.81])
 
 ## Initial Conditions
 r0 = 1000 * np.array([1.5, 0.5, 2])
@@ -220,7 +254,7 @@ dt = 1
 T = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf+dt,dt)
 
-N = 20
+N = 48
 # N = T
 
 ## Constraint Parameters
@@ -234,29 +268,72 @@ m = 3
 x_hist  = np.zeros((T,s))
 u_hist  = np.zeros((T-1,m))
 
+# Q = 10000*np.identity(s)
+# Q[2,2] = 10000
+# R = 0.01*np.identity(m)
+
 x_hist[0] = np.concatenate((r0, v0, [wet_mass]))
 
 ## Iteratively solve Convex Problem
 f_sim = lambda x,t,u: dynamics(x,u,g,α)
-
-for t in tqdm(range(T-1)):
+# f = jax.jit(dynamics)
+# fd = jax.jit(lambda x,u,dt=dt: x + dt*f(x,u))
+# lqr = False
+u_prev = 0
+# t_hist = []
+for t in tqdm(range(len(ts)-1)):
     # Solve Convex Problem
-    r, v, mass, u, status = run_mpc(r0, v0, wet_mass, rf, vf, dry_mass, g, θ, n, γ, dt, α, ρ1, ρ2, N)
-    
+    # if lqr == False:
+    t_left = tf - ts[t]
+    dt_curr = t_left/N
+    r, v, mass, u, status = run_mpc(r0, v0, wet_mass, rf, vf, dry_mass, g, θ, n, γ, dt_curr, α, ρ1, ρ2, N)
+    # N -= 1
     if status == 'infeasible':
         print(status)
+        u = u_prev.copy()
+        for i in range(1,T-t):
+            print(i)
+            u_ctrl = u[i*int(dt/dt_curr)]
+            x_hist[t+i] = odeint(f_sim,x_hist[t+i-1],[0, dt], args=(u_ctrl,))[-1]
+            u_hist[t+i-1]   = u_ctrl
+            r0 = x_hist[t+i, 0:3]
+            v0 = x_hist[t+i, 3:6]
+            wet_mass = x_hist[t+i,6]
         break
+            # t_full = dt_curr
+            # i = 0
+            # while t_full < dt:
+            #     i += 1
+            #     u_ctrl = u[i]
+            #     x_hist[t+1] = odeint(f_sim,x_hist[t+1],[0, dt_curr], args=(u_ctrl,))[-1]
+            #     u_hist[t]   = u_ctrl
+            #     t_full += dt_curr
+        # lqr = True
     else:
         # t_prev = t
         # x_prev = np.concatenate((r,v,mass[:, None]), axis=1)
         # u_prev = u
-        
         u_ctrl = u[0]
+    # if lqr == True:
+    #     A,B = linearize(fd,x_data[t],u_data[t])
+    #     K = control.dlqr(A,B,Q,R)[0]
     # print(r[1])
     # print(r[-1])
     # Update
+    # x_hist[t+1] = odeint(f_sim,x_hist[t],[0, dt_curr], args=(u_ctrl,))[-1]
     x_hist[t+1] = odeint(f_sim,x_hist[t],[0, dt], args=(u_ctrl,))[-1]
-    u_hist[t]   = u_ctrl      
+
+
+    u_hist[t]   = u_ctrl
+    u_prev = u.copy()
+    # t_full = dt_curr
+    # i = 0
+    # while t_full < dt:
+    #     i += 1
+    #     u_ctrl = u[i]
+    #     x_hist[t+1] = odeint(f_sim,x_hist[t+1],[0, dt_curr], args=(u_ctrl,))[-1]
+    #     u_hist[t]   = u_ctrl
+    #     t_full += dt_curr
 
     # N = int(N - dt)
     r0 = x_hist[t+1, 0:3]
@@ -268,6 +345,10 @@ print(v0)
 print(wet_mass)
 
 # print(r[-1])
+
+np.save("data/mpc_x.npy",x_hist)
+np.save("data/mpc_t.npy",ts)
+np.save("data/mpc_u.npy",u_hist)
 
 ## Plot
 plt.figure()
@@ -281,13 +362,13 @@ plt.subplot(3,1,3)
 plt.plot(ts,x_hist[:,2])
 plt.xlabel("t [s]")
 plt.ylabel("rz [m]")
-plt.savefig("../figures/3dof_mpc_finish_lqr_pos.png")
+plt.savefig("figures/3dof_mpc_finish_lqr_pos.png")
 
 plt.figure()
 plt.plot(x_hist[:,0],x_hist[:,1])
 plt.xlabel("X [m]")
 plt.ylabel("Y [m]")
-plt.savefig("../figures/3dof_mpc_finish_lqr_surfacetrajectory.png")
+plt.savefig("figures/3dof_mpc_finish_lqr_surfacetrajectory.png")
 
 plt.figure()
 plt.subplot(3,1,1)
@@ -313,6 +394,6 @@ plt.subplot(3,1,3)
 plt.plot(ts,u_hist[:,2])
 plt.xlabel("t [s]")
 plt.ylabel("Tz [N]")
-plt.savefig("../figures/3dof_mpc_finish_lqr_control.png")
+plt.savefig("figures/3dof_mpc_finish_lqr_control.png")
 
-plt.show()
+# plt.show()
