@@ -213,16 +213,14 @@ u_prev = 0
 
 for t in tqdm(range(len(ts)-1)):
     # Solve Convex Problem
-    # if lqr == False:
     t_left = tf - ts[t]
     dt_curr = t_left/N
     r, v, mass, u, status = run_mpc(r0, v0, wet_mass, rf, vf, dry_mass, g, θ, n, γ, dt_curr, α, ρ1, ρ2, N)
-    # N -= 1
     if status == 'infeasible':
         print(status)
         u = u_prev.copy()
         for i in range(1,T-t):
-            print(i)
+            # print(i)
             u_ctrl = u[i*int(dt/dt_curr)]
             x_hist[t+i] = odeint(f_sim,x_hist[t+i-1],[0, dt], args=(u_ctrl,))[-1]
             u_hist[t+i-1]   = u_ctrl

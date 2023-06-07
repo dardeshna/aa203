@@ -1,4 +1,5 @@
 import os
+import argparse
 
 import jax
 import jax.numpy as jnp
@@ -10,8 +11,13 @@ import numpy as np
 import control
 from scipy.integrate import odeint
 
+parser = argparse.ArgumentParser(description = "OL or LQR?")
+parser.add_argument('-open_loop', action='store_true')
+
+argument = parser.parse_args()
+
 ## Data & Figures
-closed_loop = True
+closed_loop = not argument.open_loop
 
 file_dir = os.path.dirname(os.path.abspath(__file__))
 traj_dir = os.path.join(file_dir, '../../data/', '3dof_trajectory_pointing_constraints')
