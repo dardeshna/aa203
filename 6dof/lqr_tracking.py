@@ -24,7 +24,7 @@ m = Model()
 X = np.empty(shape=[m.n_x, K])
 U = np.empty(shape=[m.n_u, K])
 
-traj_folder = "002"
+traj_folder = "000"
 full_traj_folder = os.path.join(traj_dir,traj_folder)
 X = np.load(os.path.join(full_traj_folder, "X.npy"))[-1]
 U = np.load(os.path.join(full_traj_folder, "U.npy"))[-1]

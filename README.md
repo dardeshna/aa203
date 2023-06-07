@@ -29,6 +29,11 @@ Installing libaries:
 pip install -r ./requirements.txt
 ```
 
+Create directory structure:
+```
+bash ./scripts/create_dir_structure.sh
+```
+
 ## Running the code
 First load the environment as before, and then run the following to generate all the relevant 3DOF data and plots:
 ```

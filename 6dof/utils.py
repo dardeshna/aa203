@@ -47,7 +47,7 @@ def save_arrays(path, a_dict):
     if len(os.listdir(path)) == 0:
         folder_number = '000'
     else:
-        folder_number = str(int(max(os.listdir(path))) + 1).zfill(3)
+        folder_number = str(len(next(os.walk(path))[1])).zfill(3)
 
     os.mkdir(f'{path}/{folder_number}')
 
