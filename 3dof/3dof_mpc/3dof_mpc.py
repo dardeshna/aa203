@@ -1,13 +1,19 @@
+import os
+
 import jax
 import jax.numpy as jnp
 
 import cvxpy as cp
 import numpy as np
 import matplotlib.pyplot as plt
-import control
 
 from scipy.integrate import odeint
 from tqdm import tqdm
+
+## Data & Figures
+file_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(file_dir, '../../data/', '3dof_mpc')
+figure_dir = os.path.join(file_dir, '../../figures/', '3dof_mpc')
 
 def dynamics(x, u, g, α):
     """
@@ -81,18 +87,8 @@ def run_mpc(r0, v0, wet_mass,           # Initial conditions
     ## Objective
     objective = 0
     objective += -z[N-1]
-    # objective += cp.norm2(r[N-1] - rf)
-    # objective += cp.norm2(v[N-1] - vf)
-
-    # for i in range(N):
-    #     objective += cp.norm2(r[i] - rf)
-    #     objective += cp.norm2(v[i] - vf)
-
-    #     objective += 10*cp.norm2(r[i,2] - rf[2])
 
     objective = cp.Minimize(objective)
-
-    # objective = cp.Minimize(-z[N-1])
 
     constraints = []
     ## Initial Condition Constraints
@@ -106,8 +102,8 @@ def run_mpc(r0, v0, wet_mass,           # Initial conditions
     constraints += [
         r[N-1] == rf,
         v[N-1] == vf,
-        # z[N-1] >= np.log(dry_mass)
     ]
+
     ## Constraints at each time step
     for i in range(N):
         z0_innerTerm = wet_mass - α*ρ2*i*dt
@@ -168,63 +164,6 @@ def run_mpc(r0, v0, wet_mass,           # Initial conditions
 
     return r.value, v.value, m, T, status
 
-def run_min_landing_mpc(r0, v0, wet_mass,           # Initial conditions
-                        rf, vf,                     # Final conditions
-                        dry_mass, g, θ, n, γ, dt,   # constants
-                        α, ρ1, ρ2,                  # constraint parameters
-                        N                           # local horizon
-                        ):
-    # Normalization
-    r_scale = np.linalg.norm(r0)
-    m_scale = wet_mass
-
-    α = α*r_scale
-    g = g/r_scale
-    ρ1 = ρ1/r_scale/m_scale
-    ρ2 = ρ2/r_scale/m_scale
-    wet_mass = wet_mass/m_scale
-    dry_mass = dry_mass/m_scale
-    r0 = r0/r_scale
-    v0 = v0/r_scale
-
-    #### Set up CVXPY Problem
-    r = cp.Variable((N,3))
-    v = cp.Variable((N,3))
-    u = cp.Variable((N,3))
-    z = cp.Variable(N)
-    σ = cp.Variable(N)
-
-    y = cp.Variable((N,7))
-
-    ## Constants
-    E   = np.concatenate((np.eye(3), np.zeros((3,4))), axis=1)
-    F   = np.concatenate((np.zeros((1,6)), [1]), axis=1)
-    E_u = np.concatenate((np.eye(3), np.zeros((3,1))), axis=1)
-    E_v = np.concatenate((np.zeros((3,3)), np.eye(3), np.zeros((3,1))), axis=1)
-
-    ## Objective
-    objective = 0
-    objective += cp.norm2(E @ y[N-1])
-
-    objective = cp.Minimize(objective)
-
-    ## Constraints
-    constraints = []
-
-    constraints += [
-        F @ y[N-1] >= np.log(dry_mass)
-    ]
-
-    # Gamma = || Thrust ||
-
-# Open Loop Data
-# mass = np.array([np.load("data/mass.npy")]).T
-# pos = np.load("data/pos.npy")
-# vel = np.load("data/vel.npy")
-# x_data = np.hstack((pos,vel,mass))
-# u_data = np.load("data/thrust.npy")
-
-
 ## New Shepard
 dry_mass = 20569
 wet_mass = 27000 # Assumed from start of landing burn
@@ -253,9 +192,7 @@ dt = 1
 
 T = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf+dt,dt)
-
-N = 48
-# N = T
+N = tf
 
 ## Constraint Parameters
 α = 1/(g0*Isp*np.cos(φ))
@@ -268,19 +205,12 @@ m = 3
 x_hist  = np.zeros((T,s))
 u_hist  = np.zeros((T-1,m))
 
-# Q = 10000*np.identity(s)
-# Q[2,2] = 10000
-# R = 0.01*np.identity(m)
-
 x_hist[0] = np.concatenate((r0, v0, [wet_mass]))
 
 ## Iteratively solve Convex Problem
 f_sim = lambda x,t,u: dynamics(x,u,g,α)
-# f = jax.jit(dynamics)
-# fd = jax.jit(lambda x,u,dt=dt: x + dt*f(x,u))
-# lqr = False
 u_prev = 0
-# t_hist = []
+
 for t in tqdm(range(len(ts)-1)):
     # Solve Convex Problem
     # if lqr == False:
@@ -300,55 +230,28 @@ for t in tqdm(range(len(ts)-1)):
             v0 = x_hist[t+i, 3:6]
             wet_mass = x_hist[t+i,6]
         break
-            # t_full = dt_curr
-            # i = 0
-            # while t_full < dt:
-            #     i += 1
-            #     u_ctrl = u[i]
-            #     x_hist[t+1] = odeint(f_sim,x_hist[t+1],[0, dt_curr], args=(u_ctrl,))[-1]
-            #     u_hist[t]   = u_ctrl
-            #     t_full += dt_curr
-        # lqr = True
     else:
-        # t_prev = t
-        # x_prev = np.concatenate((r,v,mass[:, None]), axis=1)
-        # u_prev = u
         u_ctrl = u[0]
-    # if lqr == True:
-    #     A,B = linearize(fd,x_data[t],u_data[t])
-    #     K = control.dlqr(A,B,Q,R)[0]
-    # print(r[1])
-    # print(r[-1])
+
     # Update
-    # x_hist[t+1] = odeint(f_sim,x_hist[t],[0, dt_curr], args=(u_ctrl,))[-1]
     x_hist[t+1] = odeint(f_sim,x_hist[t],[0, dt], args=(u_ctrl,))[-1]
-
-
     u_hist[t]   = u_ctrl
     u_prev = u.copy()
-    # t_full = dt_curr
-    # i = 0
-    # while t_full < dt:
-    #     i += 1
-    #     u_ctrl = u[i]
-    #     x_hist[t+1] = odeint(f_sim,x_hist[t+1],[0, dt_curr], args=(u_ctrl,))[-1]
-    #     u_hist[t]   = u_ctrl
-    #     t_full += dt_curr
 
     # N = int(N - dt)
     r0 = x_hist[t+1, 0:3]
     v0 = x_hist[t+1, 3:6]
     wet_mass = x_hist[t+1,6]
 
+
+## Save data
 print(r0)
 print(v0)
 print(wet_mass)
 
-# print(r[-1])
-
-np.save("data/mpc_x.npy",x_hist)
-np.save("data/mpc_t.npy",ts)
-np.save("data/mpc_u.npy",u_hist)
+np.save(os.path.join(data_dir, "mpc_x.npy"),x_hist)
+np.save(os.path.join(data_dir, "mpc_t.npy"),ts)
+np.save(os.path.join(data_dir, "mpc_u.npy"),u_hist)
 
 ## Plot
 plt.figure()
@@ -362,13 +265,13 @@ plt.subplot(3,1,3)
 plt.plot(ts,x_hist[:,2])
 plt.xlabel("t [s]")
 plt.ylabel("rz [m]")
-plt.savefig("figures/3dof_mpc_finish_lqr_pos.png")
+plt.savefig(os.path.join(figure_dir, "3dof_mpc_pos.png"))
 
 plt.figure()
 plt.plot(x_hist[:,0],x_hist[:,1])
 plt.xlabel("X [m]")
 plt.ylabel("Y [m]")
-plt.savefig("figures/3dof_mpc_finish_lqr_surfacetrajectory.png")
+plt.savefig(os.path.join(figure_dir,"3dof_mpc_surfacetrajectory.png"))
 
 plt.figure()
 plt.subplot(3,1,1)
@@ -381,6 +284,7 @@ plt.subplot(3,1,3)
 plt.plot(ts,x_hist[:,5])
 plt.xlabel("t [s]")
 plt.ylabel("vz [m/s]")
+plt.savefig(os.path.join(figure_dir,"3dof_mpc_vel.png"))
 
 ts = ts[0:-1]
 plt.figure()
@@ -394,6 +298,4 @@ plt.subplot(3,1,3)
 plt.plot(ts,u_hist[:,2])
 plt.xlabel("t [s]")
 plt.ylabel("Tz [N]")
-plt.savefig("figures/3dof_mpc_finish_lqr_control.png")
-
-# plt.show()
+plt.savefig(os.path.join(figure_dir,"3dof_mpc_control.png"))

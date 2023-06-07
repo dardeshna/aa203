@@ -1,28 +1,12 @@
+import os
 import cvxpy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 
-## Constants
-# Mars
-# dry_mass = 1700
-# Isp = 225
-# max_throttle = 0.8
-# min_throttle = 0.2
-# g = np.array([0,0,-3.7114]) # Mars Gravity
-# T_max = 24000
-# γ = 4*np.deg2rad(1) # glide slope constraint
-# wet_mass = 2000
-# n = np.array([0,0,1]) # Nominal thrust pointing vector
-# θ = np.deg2rad(45) # Attitude constraint
-## Initial Conditions
-# r0 = np.array([450, -330, 2400])
-# v0 = np.array([-40,10,-10])
-# ## Terminal Conditions set to origin
-# rf = np.array([0,0,0])
-# vf = np.array([0,0,0])
-# ## Time of Flight
-# tf = 57
-# dt = 1
+## Data & Figures
+file_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(file_dir, '../../data/', '3dof_trajectory_pointing_constraints')
+figure_dir = os.path.join(file_dir, '../../figures/', '3dof_trajectory_pointing_constraints')
 
 # New Shepard
 g0 = 9.80665
@@ -47,9 +31,6 @@ vf = np.array([0,0,0])
 ## Time of Flight
 tf = 48
 dt = 1
-# N = 200
-# dt = tf/N
-
 
 N = int(np.ceil(tf/dt) + 1)
 ts = np.arange(0,tf,dt)
@@ -141,13 +122,25 @@ m = m_scale*np.exp(z.value)
 r = r*r_scale
 v = v*r_scale
 
+Tx = u.value[:,0] * m * r_scale
+Ty = u.value[:,1] * m * r_scale
+Tz = u.value[:,2] * m * r_scale
+T = np.array([Tx,Ty,Tz]).T
 
-np.save("data/pos.npy",r.value)
-np.save("data/vel.npy",v.value)
-np.save("data/mass.npy",m)
+## Save data
+np.save(os.path.join(data_dir, "pos.npy"),r.value)
+np.save(os.path.join(data_dir, "vel.npy"),v.value)
+np.save(os.path.join(data_dir, "mass.npy"),m)
+np.save(os.path.join(data_dir, "thrust.npy"),T)
+
+T = np.linalg.norm(T,2,1)
 
 print(m[-1])
+print(Tx[-1])
+print(Ty[-1])
+print(Tz[-1])
 
+## Generate plots
 plt.figure()
 ax = plt.axes(projection='3d')
 ax.plot3D(r.value[:,0],r.value[:,1],r.value[:,2])
@@ -155,14 +148,14 @@ ax.set_aspect('equal')
 ax.set_xlabel("X [m]")
 ax.set_ylabel("Y [m]")
 ax.set_zlabel("Z [m]")
-plt.savefig("figures/3dof_trajectory_attitude.png")
+plt.savefig(os.path.join(figure_dir, "3dof_trajectory_attitude.png"))
 
 plt.figure()
 plt.plot(r.value[:,0],r.value[:,1])
 plt.grid(True)
 plt.xlabel("X [m]")
 plt.ylabel("Y [m]")
-plt.savefig("figures/3dof_surfacetrajectory_attitude.png")
+plt.savefig(os.path.join(figure_dir, "3dof_surfacetrajectory_attitude.png"))
 
 t_span = np.linspace(0,tf,N)
 plt.figure()
@@ -179,7 +172,7 @@ plt.grid(True)
 plt.plot(t_span,r.value[:,2])
 plt.xlabel("t [s]")
 plt.ylabel(r"$r_z$ [m]")
-plt.savefig("figures/3dof_pos_attitude.png")
+plt.savefig(os.path.join(figure_dir, "3dof_pos_attitude.png"))
 
 plt.figure()
 plt.subplot(3,1,1)
@@ -195,38 +188,7 @@ plt.grid(True)
 plt.plot(t_span,v.value[:,2])
 plt.xlabel("t [s]")
 plt.ylabel(r"$v_z$ [m/s]")
-plt.savefig("figures/3dof_vel_attitude.png")
-
-
-Tx = u.value[:,0] * m * r_scale
-Ty = u.value[:,1] * m * r_scale
-Tz = u.value[:,2] * m * r_scale
-T = np.array([Tx,Ty,Tz]).T
-np.save("data/thrust.npy",T)
-T = np.linalg.norm(T,2,1)
-
-print(Tx[-1])
-print(Ty[-1])
-print(Tz[-1])
-
-
-# plt.figure()
-# plt.subplot(5,1,1)
-# plt.plot(t_span,Tx)
-# plt.ylabel("Tx [N]")
-# plt.subplot(5,1,2)
-# plt.plot(t_span,Ty)
-# plt.ylabel("Ty [N]")
-# plt.subplot(5,1,3)
-# plt.plot(t_span,Tz)
-# plt.ylabel("Tz [N]")
-# plt.subplot(5,1,4)
-# plt.plot(t_span,T)
-# plt.ylabel("T [N]")
-# plt.subplot(5,1,5)
-# plt.plot(t_span,m)
-# plt.ylabel("m [kg]")
-# plt.xlabel("t [s]")
+plt.savefig(os.path.join(figure_dir, "3dof_vel_attitude.png"))
 
 plt.figure()
 plt.subplot(2,1,1)
@@ -242,7 +204,7 @@ plt.plot(t_span,m)
 plt.ticklabel_format(style='plain')
 plt.ylabel("Mass [kg]")
 plt.xlabel("t [s]")
-plt.savefig("figures/3dof_control_attitude.png")
+plt.savefig(os.path.join(figure_dir, "3dof_control_attitude.png"))
 
 plt.figure()
 plt.subplot(3,1,1)
@@ -258,6 +220,6 @@ plt.grid(True)
 plt.plot(t_span,Tz/1000)
 plt.xlabel("t [s]")
 plt.ylabel(r"$T_z$ [kN]")
-plt.savefig("figures/3dof_controlVector_attitude.png")
+plt.savefig(os.path.join(figure_dir, "3dof_controlVector_attitude.png"))
 
 # plt.show()

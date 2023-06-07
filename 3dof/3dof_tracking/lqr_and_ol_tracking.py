@@ -1,3 +1,5 @@
+import os
+
 import jax
 import jax.numpy as jnp
 
@@ -7,6 +9,19 @@ import numpy as np
 
 import control
 from scipy.integrate import odeint
+
+## Data & Figures
+closed_loop = True
+
+file_dir = os.path.dirname(os.path.abspath(__file__))
+traj_dir = os.path.join(file_dir, '../../data/', '3dof_trajectory_pointing_constraints')
+
+if closed_loop:
+    data_dir = os.path.join(file_dir, '../../data/', '3dof_lqr')
+    figure_dir = os.path.join(file_dir, '../../figures/', '3dof_lqr')
+else:
+    data_dir = os.path.join(file_dir, '../../data/', '3dof_ol')
+    figure_dir = os.path.join(file_dir, '../../figures/', '3dof_ol')
 
 def linearize(f, x, u):
     """Linearize the function `f(s, u)` around `(s, u)`.
@@ -53,21 +68,21 @@ def dynamics(x, u):
         -α*jnp.linalg.norm(u)
     ])
 
+# Load Trajectory Data
+mass = np.array([np.load(os.path.join(traj_dir, "mass.npy"))]).T
+pos = np.load(os.path.join(traj_dir, "pos.npy"))
+vel = np.load(os.path.join(traj_dir, "vel.npy"))
+# x_ol = np.load(os.path.join(traj_dir, "stateErrorOL_drag.npy"))
+x_data = np.hstack((pos,vel,mass))
+
+u_data = np.load(os.path.join(traj_dir, "thrust.npy"))
+
+## LQR Settings
 n = 7
 m = 3
 Q = 10000*np.identity(n)
 Q[2,2] = 10000
 R = 0.01*np.identity(m)
-closed_loop = True
-
-# Load Trajectory Data
-mass = np.array([np.load("data/mass.npy")]).T
-pos = np.load("data/pos.npy")
-vel = np.load("data/vel.npy")
-x_ol = np.load("data/stateErrorOL_drag.npy")
-x_data = np.hstack((pos,vel,mass))
-
-u_data = np.load("data/thrust.npy")
 
 tf = 48
 dt = 1
@@ -101,21 +116,23 @@ for i in range(N-1):
         u_cl[i] = -K[i]@e[i]
     u[i]    = u_ol[i] + u_cl[i]
     x[i+1] = odeint(f_sim,x[i],[ts[i],ts[i+1]],args=(u[i],))[-1]
-# np.save("data/stateErrorOL_drag.npy",x)
 
+## Save results
+np.save(os.path.join(data_dir, "x.npy"),x)
+np.save(os.path.join(data_dir, "u.npy"),u_ol+u_cl)
+
+## Plot figures
 t_span = np.linspace(0,tf,N)
 plt.figure()
 plt.subplot(3,1,1)
 plt.grid(True)
 plt.plot(t_span,x_data[:,0])
 plt.plot(t_span,x[:,0])
-plt.legend(["Nominal","True"])
 plt.ylabel(r"$r_x$ [m]")
 plt.subplot(3,1,2)
 plt.grid(True)
 plt.plot(t_span,x_data[:,1])
 plt.plot(t_span,x[:,1])
-plt.legend(["Nominal","True"])
 plt.ylabel(r"$r_y$ [m]")
 plt.subplot(3,1,3)
 plt.grid(True)
@@ -124,55 +141,27 @@ plt.plot(t_span,x[:,2])
 plt.legend(["Nominal","True"])
 plt.xlabel("t [s]")
 plt.ylabel(r"$r_z$ [m]")
-plt.savefig("figures/3dof_pos_lqr.png")
-
-x_mpc = np.load("data/mpc_x.npy")
-u_mpc = np.load("data/mpc_u.npy")
-# t_mpc = np.load("data/mpc_t.npy")
-plt.figure()
-plt.subplot(3,1,1)
-plt.grid(True)
-plt.plot(t_span,x_ol[:,0]-x_data[:,0])
-plt.plot(t_span,x[:,0]-x_data[:,0])
-plt.plot(t_span,x_mpc[:,0]-x_data[:,0])
-plt.legend(["Open Loop","LQR","MPC"])
-plt.ylabel(r"Error $r_x$ [m]")
-plt.subplot(3,1,2)
-plt.grid(True)
-plt.plot(t_span,x_ol[:,1]-x_data[:,1])
-plt.plot(t_span,x[:,1]-x_data[:,1])
-plt.plot(t_span,x_mpc[:,1]-x_data[:,1])
-plt.subplot(3,1,3)
-plt.grid(True)
-plt.plot(t_span,x_ol[:,2]-x_data[:,2])
-plt.plot(t_span,x[:,2]-x_data[:,2])
-plt.plot(t_span,x_mpc[:,2]-x_data[:,2])
-plt.xlabel("t [s]")
-plt.ylabel(r"Error $r_z$ [m]")
-plt.savefig("figures/3dof_poserr_lqr.png")
+plt.savefig(os.path.join(figure_dir,"3dof_pos_lqr.png"))
 
 plt.figure()
 plt.subplot(3,1,1)
 plt.grid(True)
 plt.plot(t_span[:-1],u_ol[:,0]/1000,'b')
 plt.plot(t_span[:-1],u_ol[:,0]/1000 + u_cl[:,0]/1000,'r',linestyle='dashed')
-plt.plot(t_span[:-1],u_mpc[:,0]/1000,'g',linestyle='dashed')
-plt.legend(["Open Loop","LQR","MPC"])
 plt.ylabel(r"$T_x$ [kN]")
+
 plt.subplot(3,1,2)
 plt.grid(True)
 plt.plot(t_span[:-1],u_ol[:,1]/1000,'b')
 plt.plot(t_span[:-1],u_ol[:,1]/1000 + u_cl[:,1]/1000,'r',linestyle='dashed')
-plt.plot(t_span[:-1],u_mpc[:,1]/1000,'g',linestyle='dashed')
-# plt.legend(["Open Loop","Closed Loop"])
 plt.ylabel(r"$T_y$ [kN]")
+
 plt.subplot(3,1,3)
 plt.grid(True)
 plt.plot(t_span[:-1],u_ol[:,2]/1000,'b')
 plt.plot(t_span[:-1],u_ol[:,2]/1000 + u_cl[:,2]/1000,'r',linestyle='dashed')
-plt.plot(t_span[:-1],u_mpc[:,2]/1000,'g',linestyle='dashed')
-# plt.legend(["Open Loop","Closed Loop"])
+plt.legend(["Nominal","True"])
 plt.xlabel("t [s]")
 plt.ylabel(r"$T_z$ [kN]")
-plt.savefig("figures/3dof_control_lqr.png")
+plt.savefig(os.path.join(figure_dir,"3dof_control_lqr.png"))
 

@@ -1,3 +1,5 @@
+import os
+
 from time import time
 import numpy as np
 
@@ -147,7 +149,11 @@ if not converged:
     print('Maximum number of iterations reached without convergence.')
 
 # save trajectory to file for visualization
-save_arrays('output/trajectory/', {'X': all_X, 'U': all_U, 'sigma': all_sigma})
+file_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(file_dir, '../data/', '6dof_trajectory')
+figure_dir = os.path.join(file_dir, '../figures/', '6dof_trajectory')
+
+save_arrays(data_dir, {'X': all_X, 'U': all_U, 'sigma': all_sigma})
 
 # plot trajectory
-plot(all_X, all_U, all_sigma)
+plot(all_X, all_U, all_sigma, data_dir)

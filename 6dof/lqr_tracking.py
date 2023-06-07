@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -10,6 +12,12 @@ from Models.rocket_landing_3d_plot import plot
 
 from global_parameters import K
 
+## Data & Figures
+file_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(file_dir, '../data/', '6dof_lqr')
+figure_dir = os.path.join(file_dir, '../figures/', '6dof_lqr')
+traj_dir = os.path.join(file_dir, '../data/', '6dof_trajectory')
+
 m = Model()
 
 # state and input
@@ -17,9 +25,10 @@ X = np.empty(shape=[m.n_x, K])
 U = np.empty(shape=[m.n_u, K])
 
 traj_folder = "002"
-X = np.load(f"output/trajectory/{traj_folder}/X.npy")[-1]
-U = np.load(f"output/trajectory/{traj_folder}/U.npy")[-1]
-t_f = np.load(f"output/trajectory/{traj_folder}/sigma.npy")[-1]
+full_traj_folder = os.path.join(traj_dir,traj_folder)
+X = np.load(os.path.join(full_traj_folder, "X.npy"))[-1]
+U = np.load(os.path.join(full_traj_folder, "U.npy"))[-1]
+t_f = np.load(os.path.join(full_traj_folder, "sigma.npy"))[-1]
 
 X_interp = scipy.interpolate.interp1d(np.linspace(0, t_f, K), X)
 U_interp = scipy.interpolate.interp1d(np.linspace(0, t_f, K), U)
@@ -55,7 +64,7 @@ while t < t_f:
     P = scipy.linalg.solve_continuous_are(A, B, Q, R)
     K_cl = np.linalg.solve(R, B.T @ P)
 
-    print("time:", t)
+    # print("time:", t)
     # print("err:", x_ref-x)
     # print("ref:", u_ref)
     # print("cl:", (K_cl @ (x_ref-x))[:-1])
