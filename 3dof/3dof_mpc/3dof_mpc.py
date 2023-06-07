@@ -1,4 +1,5 @@
 import os
+import argparse
 
 import jax
 import jax.numpy as jnp
@@ -9,11 +10,24 @@ import matplotlib.pyplot as plt
 
 from scipy.integrate import odeint
 from tqdm import tqdm
+import control
+
+parser = argparse.ArgumentParser(description = "OL or LQR?")
+parser.add_argument('-open_loop', action='store_true')
+
+argument = parser.parse_args()
 
 ## Data & Figures
+closed_loop = not argument.open_loop
+
 file_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.join(file_dir, '../../data/', '3dof_mpc')
-figure_dir = os.path.join(file_dir, '../../figures/', '3dof_mpc')
+
+if closed_loop:
+    data_dir = os.path.join(file_dir, '../../data/', '3dof_mpc_lqr')
+    figure_dir = os.path.join(file_dir, '../../figures/', '3dof_mpc_lqr')
+else:
+    data_dir = os.path.join(file_dir, '../../data/', '3dof_mpc_ol')
+    figure_dir = os.path.join(file_dir, '../../figures/', '3dof_mpc_ol')
 
 def dynamics(x, u, g, α):
     """
@@ -207,9 +221,18 @@ u_hist  = np.zeros((T-1,m))
 
 x_hist[0] = np.concatenate((r0, v0, [wet_mass]))
 
+## LQR Settings
+Q = 10000*np.identity(s)
+Q[2,2] = 10000
+R = 0.01*np.identity(m)
+
+f = jax.jit(dynamics)
+fd = jax.jit(lambda x,u,dt=dt: x + dt*f(x,u, g,α))
+
 ## Iteratively solve Convex Problem
 f_sim = lambda x,t,u: dynamics(x,u,g,α)
 u_prev = 0
+x_prev = 0
 
 for t in tqdm(range(len(ts)-1)):
     # Solve Convex Problem
@@ -218,10 +241,29 @@ for t in tqdm(range(len(ts)-1)):
     r, v, mass, u, status = run_mpc(r0, v0, wet_mass, rf, vf, dry_mass, g, θ, n, γ, dt_curr, α, ρ1, ρ2, N)
     if status == 'infeasible':
         print(status)
-        u = u_prev.copy()
+        # u = u_prev.copy()
+        u_data = u_prev.copy()
+        x_data = x_prev.copy()
+        
+        # Generate K matrices using LQE
+        K = np.zeros((T-t+1,m,s))
+        A = np.zeros((T-t+1,s,s))
+        B = np.zeros((T-t+1,s,m))
+        for i in range(T-t):
+            prev_idx = i*int(dt/dt_curr)
+            A[i],B[i] = linearize(fd,x_data[prev_idx],u_data[prev_idx])
+            K[i] = control.dlqr(A[i],B[i],Q,R)[0]
+        
+        # Simulate
         for i in range(1,T-t):
+            prev_idx = i*int(dt/dt_curr)
+            err = x_hist[t+i-1] - x_data[prev_idx]
+            
             # print(i)
-            u_ctrl = u[i*int(dt/dt_curr)]
+            u_ctrl = u_data[prev_idx]
+            if closed_loop:
+                u_ctrl += -K[i]@err
+            
             x_hist[t+i] = odeint(f_sim,x_hist[t+i-1],[0, dt], args=(u_ctrl,))[-1]
             u_hist[t+i-1]   = u_ctrl
             r0 = x_hist[t+i, 0:3]
@@ -235,6 +277,7 @@ for t in tqdm(range(len(ts)-1)):
     x_hist[t+1] = odeint(f_sim,x_hist[t],[0, dt], args=(u_ctrl,))[-1]
     u_hist[t]   = u_ctrl
     u_prev = u.copy()
+    x_prev = np.concatenate((r, v, mass[:, None]), axis=1).copy()
 
     # N = int(N - dt)
     r0 = x_hist[t+1, 0:3]
