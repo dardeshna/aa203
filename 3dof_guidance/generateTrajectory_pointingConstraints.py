@@ -46,7 +46,7 @@ rf = np.array([0,0,0])
 vf = np.array([0,0,0])
 ## Time of Flight
 tf = 48
-dt = 1
+dt = 0.1
 # N = 200
 # dt = tf/N
 
@@ -260,4 +260,4 @@ plt.xlabel("t [s]")
 plt.ylabel(r"$T_z$ [kN]")
 plt.savefig("figures/3dof_controlVector_attitude.png")
 
-# plt.show()
+plt.show()
