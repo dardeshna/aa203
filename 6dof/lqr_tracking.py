@@ -4,6 +4,7 @@ import numpy as np
 import scipy.interpolate
 
 from scipy.integrate import odeint
+from scipy.spatial.transform import Rotation
 
 from Models.rocket_landing_3d import Model
 from Models.rocket_landing_3d_plot import plot
@@ -16,7 +17,7 @@ m = Model()
 X = np.empty(shape=[m.n_x, K])
 U = np.empty(shape=[m.n_u, K])
 
-traj_folder = "002"
+traj_folder = "036"
 X = np.load(f"output/trajectory/{traj_folder}/X.npy")[-1]
 U = np.load(f"output/trajectory/{traj_folder}/U.npy")[-1]
 t_f = np.load(f"output/trajectory/{traj_folder}/sigma.npy")[-1]
@@ -24,11 +25,11 @@ t_f = np.load(f"output/trajectory/{traj_folder}/sigma.npy")[-1]
 X_interp = scipy.interpolate.interp1d(np.linspace(0, t_f, K), X)
 U_interp = scipy.interpolate.interp1d(np.linspace(0, t_f, K), U)
 
-Q = np.diag([0.1, 10000, 10000, 10000, 1, 1, 1, 100, 100, 100, 100, 1, 1, 1])
+Q = np.diag([0, 10000, 10000, 10000, 10, 10, 10, 10000, 10000, 10000, 10000, 100, 100, 100])
 R = 0.01*np.identity(m.n_u+1)
 
 t = 0
-dt = 0.05
+dt = 0.1
 x = X[:, 0]
 
 xs = []
@@ -73,17 +74,74 @@ while t < t_f:
 xs = np.array(xs).T
 us = np.array(us).T
 
+# 3D PLOT
+
 # plot(xs[None,...], us[None,...], np.array([t_f])[None,...])
 # plot(X[None,...], U[None,...], np.array([t_f])[None,...])
 
 N = np.shape(xs)[1]
 
-from matplotlib import pyplot as plt
+# XYZ
 
-for i in range(1,4):
-    plt.figure()
-    plt.plot(np.linspace(0, t_f, N), xs[i])
-    plt.plot(np.linspace(0, t_f, K), X[i])
-    plt.title(f"x[{i}]")
+plt.figure()
+plt.subplot(3, 1, 1)
+plt.plot(np.linspace(0, t_f, K), X[1], 'b', label="Trajectory")
+plt.plot(np.linspace(0, t_f, N), xs[1], 'r', linestyle='dashed', label="LQR")
+plt.ylabel(r"$r_x$ [m]")
+plt.legend()
+plt.subplot(3, 1, 2)
+plt.plot(np.linspace(0, t_f, K), X[2], 'b', label="Trajectory")
+plt.plot(np.linspace(0, t_f, N), xs[2], 'r', linestyle='dashed', label="LQR")
+plt.ylabel(r"$r_y$ [m]")
+plt.subplot(3, 1, 3)
+plt.plot(np.linspace(0, t_f, K), X[3], 'b', label="Trajectory")
+plt.plot(np.linspace(0, t_f, N), xs[3], 'r', linestyle='dashed', label="LQR")
+plt.ylabel(r"$r_z$ [m]")
+
+# ANGLE FROM VERTICAL
+
+q_d = Rotation.from_quat(X[[8,9,10,7]].T)
+q = Rotation.from_quat(xs[[8,9,10,7]].T)
+
+plt.figure()
+plt.plot(np.linspace(0, t_f, K), np.degrees(q_d.magnitude()), 'b', label="Trajectory")
+plt.plot(np.linspace(0, t_f, N), np.degrees(q.magnitude()), 'r', linestyle='dashed', label="LQR")
+plt.legend()
+plt.ylabel(r"$\Delta\theta$ [deg]")
+
+# THRUST
+
+plt.figure()
+plt.subplot(3, 1, 1)
+plt.plot(np.linspace(0, t_f, K), U[0]*1e-3, 'b', label="Trajectory")
+plt.plot(np.linspace(0, t_f, N), us[0]*1e-3, 'r', linestyle='dashed', label="LQR")
+plt.ylabel(r"$T_x$ [kN]")
+plt.legend()
+plt.subplot(3, 1, 2)
+plt.plot(np.linspace(0, t_f, K), U[1]*1e-3, 'b', label="Trajectory")
+plt.plot(np.linspace(0, t_f, N), us[1]*1e-3, 'r', linestyle='dashed', label="LQR")
+plt.ylabel(r"$T_y$ [kN]")
+plt.subplot(3, 1, 3)
+plt.plot(np.linspace(0, t_f, K), U[2]*1e-3, 'b', label="Trajectory")
+plt.plot(np.linspace(0, t_f, N), us[2]*1e-3, 'r', linestyle='dashed', label="LQR")
+plt.ylabel(r"$T_z$ [kN]")
+
+# QUATERNION COMPONENTS
+
+# for i in [7, 8, 9, 10]:
+#     plt.figure()
+#     plt.plot(np.linspace(0, t_f, K), X[i], label="trajectory")
+#     plt.plot(np.linspace(0, t_f, N), xs[i], label="actual")
+#     plt.title(f"x[{i}]")
+#     plt.legend()
+
+# ANGULAR RATE
+
+# for i in [11, 12, 13]:
+#     plt.figure()
+#     plt.plot(np.linspace(0, t_f, K), X[i], label="trajectory")
+#     plt.plot(np.linspace(0, t_f, N), xs[i], label="actual")
+#     plt.title(f"x[{i}]")
+#     plt.legend()
 
 plt.show()

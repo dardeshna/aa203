@@ -96,7 +96,7 @@ class Model:
     T_min = T * min_throttle
 
     # Angular moment of inertia
-    height = 18 
+    height = 18
     radius = 1.85
     J_B = np.diag([1/12*m_wet*(3*radius**2+height**2), 1/12*m_wet*(3*radius**2+height**2), 1/2*m_wet*radius**2])
 
