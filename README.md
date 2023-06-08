@@ -34,6 +34,9 @@ Create directory structure:
 bash ./scripts/create_dir_structure.sh
 ```
 
+### Mac & Windows users
+Note that the bash scripts are built with Ubuntu in mind. They may not work well with other OS, so you may need to run commands individually.
+
 ## Running the code
 First load the environment as before, and then run the following to generate all the relevant 3DOF data and plots:
 ```
