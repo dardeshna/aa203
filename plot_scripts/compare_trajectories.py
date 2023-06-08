@@ -1,10 +1,17 @@
+import os 
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-# x_6dof = np.load("output/trajectory/001/X.npy")
-x_6dof = np.load("data/x_6dof.npy")
-# x_6dof = x_6dof[1:4,:]
-x_3dofAttitude = np.load("data/pos.npy")
+file_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(file_dir, '../data')
+figure_dir = os.path.join(file_dir, '../figures/', '3dof_vs_6dof_comparison')
+
+sixdof_data_dir = os.path.join(data_dir, '6dof_trajectory')
+traj_data_dir = os.path.join(data_dir, '3dof_trajectory_pointing_constraints')
+
+x_6dof = np.load(os.path.join(sixdof_data_dir,"x_6dof.npy"))
+x_3dofAttitude = np.load(os.path.join(traj_data_dir, "pos.npy"))
 
 
 plt.figure()
@@ -16,5 +23,5 @@ ax.set_ylabel("Y [m]")
 ax.set_zlabel("Z [m]")
 ax.set_aspect('equal')
 plt.legend(["3DOF", "6DOF"])
-plt.savefig("figures/compare_trajectory.png")
+plt.savefig(os.path.join(figure_dir,"compare_trajectory.png"))
 plt.show()

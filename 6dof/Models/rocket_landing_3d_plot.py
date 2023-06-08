@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import art3d
@@ -27,11 +29,11 @@ def key_press_event(event):
     plt.draw()
 
 
-def my_plot(fig, figures_i):
+def my_plot(fig, figures_i, data_dir):
     ax = fig.add_subplot(111, projection='3d')
 
     X_i = X[figures_i, :, :]
-    np.save("data/x_6dof.npy",X_i)
+    np.save(os.path.join(data_dir,"x_6dof.npy"),X_i)
     U_i = U[figures_i, :, :]
     K = X_i.shape[1]
 
@@ -69,7 +71,7 @@ def my_plot(fig, figures_i):
     ax.plot(X_i[1, :], X_i[2, :], X_i[3, :], color='lightgrey')
     ax.set_aspect('equal')
 
-def plot(X_in, U_in, sigma_in):
+def plot(X_in, U_in, sigma_in, data_dir):
     global figures_N
     figures_N = X_in.shape[0]
     figures_i = figures_N - 1
@@ -79,7 +81,7 @@ def plot(X_in, U_in, sigma_in):
     U = U_in
 
     fig = plt.figure(figsize=(10, 12))
-    my_plot(fig, figures_i)
+    my_plot(fig, figures_i, data_dir)
     cid = fig.canvas.mpl_connect('key_press_event', key_press_event)
     plt.show()
 
